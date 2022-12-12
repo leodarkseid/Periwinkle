@@ -3,12 +3,12 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin 
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView, FormView
 from agents.mixins import PeriwinkleRequiredMixin
 
-from .models import Lead
+from .models import Lead, Category
 
-from .forms import LeadModelForm, CustomUserCreationForm
+from .forms import LeadModelForm, CustomUserCreationForm, AssignAgentForm, LeadCategoryUpdateForm
 
 
 class SignupView( CreateView):
@@ -139,3 +139,102 @@ class LeadDeleteView(PeriwinkleRequiredMixin,DeleteView):
 
     def get_success_url(self):
         return reverse("leads:lead_list")
+
+
+class AssignAgentView(PeriwinkleRequiredMixin, FormView):
+    template_name = "assign_agent.html"
+    form_class = AssignAgentForm
+
+    def get_form_kwargs(self, **kwargs):
+        kwargs = super(AssignAgentView, self).get_form_kwargs(**kwargs)
+        kwargs.update({
+            "request": self.request
+        })
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("leads:lead_list")
+
+    def form_valid(self, form):
+        agent = form.cleaned_data["agent"]
+        lead = Lead.objects.get(id=self.kwargs["pk"])
+        lead.agent = agent
+        lead.save()
+        return super(AssignAgentView, self).form_valid(form)
+
+class CategoryListView(LoginRequiredMixin, ListView):
+    template_name = "category_list.html"
+    context_object_name = "category_list"
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        #this is filtering leads based on what should be available for each user(whether it is an organisor or agent)
+        if user.is_organisor:
+            #the agent__isnull=False ensures that the leads are divided into two assigned and non-assigned
+            queryset = Category.objects.filter(organisation=user.userprofile)
+        else:
+            queryset = Category.objects.filter(organisation=user.agent.organisation)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super(CategoryListView, self).get_context_data(**kwargs)
+        user = self.request.user
+
+        #this is filtering leads based on what should be available for each user(whether it is an organisor or agent)
+        if user.is_organisor:
+            #the agent__isnull=False ensures that the leads are divided into two assigned and non-assigned
+            queryset = Lead.objects.filter(organisation=user.userprofile)
+        else:
+            queryset = Lead.objects.filter(organisation=user.agent.organisation)
+
+        context.update({
+            "unassigned_lead_count":queryset.filter(category__isnull=True).count()
+        })
+        return context
+
+class CategoryDetailView(LoginRequiredMixin, DetailView):
+    template_name = "category_detail.html"
+    context_object_name = "category"
+
+    # This is not necessary, I opt to call "Category.leads.all" in the template since that's all I need
+    # def get_context_data(self, **kwargs):
+    #     context = super(CategoryDetailView, self).get_context_data(**kwargs)
+    #     leads = self.get_object().leads.all()
+    #     context.update({
+    #         "leads":leads
+    #     })
+    #     return context
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        #this is filtering leads based on what should be available for each user(whether it is an organisor or agent)
+        if user.is_organisor:
+            #the agent__isnull=False ensures that the leads are divided into two assigned and non-assigned
+            queryset = Category.objects.filter(organisation=user.userprofile)
+        else:
+            queryset = Category.objects.filter(organisation=user.agent.organisation)
+        return queryset
+
+class CategoryUpdateView(LoginRequiredMixin, UpdateView):
+    template_name = "lead_category_update.html"
+    form_class = LeadCategoryUpdateForm
+
+    def get_queryset(self):
+        user = self.request.user
+        #this is filtering leads based on what should be available for each user(whether it is an organisor or agent)
+        if user.is_organisor:
+            #the agent__isnull=False ensures that the leads are divided into two assigned and non-assigned
+            queryset = Lead.objects.filter(organisation=user.userprofile)
+        else:
+            queryset = Lead.objects.filter(organisation=user.agent.organisation)
+            queryset = queryset.filter(agent__user=user)
+        return queryset
+
+
+    def get_success_url(self):
+        return reverse("leads:lead_detail", kwargs={"pk":self.get_object().id})
+
+
+    
