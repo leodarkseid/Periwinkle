@@ -18,6 +18,11 @@ class LeadModelForm(forms.ModelForm):
             'first_name',
             'last_name',
             'project_name',
+            'agent',
+            'description',
+            'email',
+            'telegram',
+            'discord',
         )
 
 class CustomUserCreationForm(UserCreationForm):

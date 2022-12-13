@@ -22,6 +22,12 @@ class Lead(models.Model):
     organisation = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.CASCADE)
     agent = models.ForeignKey("Agent", on_delete=models.SET_NULL, null=True, blank=True)
     category = models.ForeignKey("Category", related_name="leads", on_delete=models.SET_NULL, null=True, blank=True)
+    description = models.TextField()
+    date_added = models.DateTimeField(auto_now_add=True)
+    email = models.EmailField()
+    telegram = models.CharField(max_length=50,null=True, blank=True,)
+    discord = models.CharField(max_length=50, null=True, blank=True)
+    
 
 
     def __str__(self):
